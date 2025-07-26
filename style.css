@@ -470,6 +470,9 @@ body.dark-mode {
 .comment-text {
     font-size: 0.85rem;
     margin-top: 0.25rem;
+    word-wrap: break-word;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 .comment-actions {
@@ -493,7 +496,7 @@ body.dark-mode {
 }
 
 .comment-action.liked {
-    color: var(--danger);
+    color: var(--success);
     font-weight: 600;
 }
 
@@ -659,4 +662,46 @@ body.dark-mode {
 ::-webkit-scrollbar-thumb {
     background: var(--primary);
     border-radius: 10px;
+}
+
+/* Commenter Modal */
+.commenter-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    backdrop-filter: blur(5px);
+}
+
+.commenter-modal .modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    animation: slideUp 0.3s ease-out;
+}
+
+.dark-mode .commenter-modal .modal-content {
+    background: #2d3748;
+}
+
+.commenter-modal h3 {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.commenter-modal .form-control {
+    margin-bottom: 1.5rem;
 }
