@@ -60,6 +60,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const ratingFilter = document.getElementById('ratingFilter');
     const tagFilter = document.getElementById('tagFilter');
     const resetFilters = document.getElementById('resetFilters');
+    const commenterModal = document.getElementById('commenterNameModal');
+    const commenterNameInput = document.getElementById('commenterNameInput');
+    const saveCommenterNameBtn = document.getElementById('saveCommenterName');
     
     // ==================== DATA MANAGEMENT ====================
     // Load feedback data from localStorage or initialize empty array
@@ -210,6 +213,22 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </span>
                                     </div>
                                 </div>
+                                ${comment.replies?.length ? `
+                                <div class="replies-list" style="margin-left:0; margin-top: 0.5rem;padding-left: 1rem;">
+                                    ${comment.replies.map(reply => `
+                                        <div class="comment-card" style="margin-top: 0.5rem;">
+                                            <div class="comment-avatar">${reply.name.charAt(0).toUpperCase()}</div>
+                                            <div class="comment-content">
+                                                <div class="comment-header">
+                                                    <span class="comment-author">${reply.name}</span>
+                                                    <span class="comment-date">${formatCommentDate(reply.date)}</span>
+                                                </div>
+                                                <div class="comment-text">${reply.text}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ` : ''}
                             </div>
                         `).join('')}
                     </div>
@@ -274,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const replyForm = document.createElement('div');
                 replyForm.className = 'reply-form';
                 replyForm.innerHTML = `
-                    <div class="add-comment" style="margin-top: 0.5rem; margin-left: 2.5rem;">
+                    <div class="add-comment" style="margin-top: 0.5rem;margin-left:2.5rem;">
                         <input type="text" class="reply-input" placeholder="Write a reply...">
                         <button class="comment-submit btn btn-primary" style="padding: 0.5rem 1rem;">
                             <i class="fas fa-paper-plane"></i> Post
@@ -285,14 +304,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 comment.querySelector('.comment-actions').after(replyForm);
                 replyForm.querySelector('input').focus();
                 
+                // Handle reply submission
                 replyForm.querySelector('button').addEventListener('click', function() {
                     const text = replyForm.querySelector('input').value.trim();
                     if (text) {
-                        addReply(feedbackId, commentId, text);
+                        const commenterName = localStorage.getItem('commenterName');
+                        if (commenterName) {
+                            addReply(feedbackId, commentId, text);
+                            replyForm.querySelector('input').value = '';
+                        } else {
+                            showCommenterNameModal((name) => {
+                                addReply(feedbackId, commentId, text);
+                                replyForm.querySelector('input').value = '';
+                            });
+                        }
                     }
                 });
             });
         });
+    }
+    
+    /**
+     * Shows modal to collect commenter's name
+     * @param {Function} callback - Function to call with the entered name
+     */
+    function showCommenterNameModal(callback) {
+        commenterModal.style.display = 'flex';
+        commenterNameInput.focus();
+        
+        const handleSubmit = () => {
+            const name = commenterNameInput.value.trim();
+            if (name) {
+                localStorage.setItem('commenterName', name);
+                commenterModal.style.display = 'none';
+                commenterNameInput.value = '';
+                callback(name);
+            }
+        };
+        
+        saveCommenterNameBtn.onclick = handleSubmit;
+        commenterNameInput.onkeydown = (e) => {
+            if (e.key === 'Enter') handleSubmit();
+        };
     }
     
     /**
@@ -303,6 +356,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const text = input.value.trim();
         if (!text) return;
         
+        const storedName = localStorage.getItem('commenterName');
+        if (storedName) {
+            actuallySubmitComment(input, text, storedName);
+        } else {
+            showCommenterNameModal((name) => {
+                actuallySubmitComment(input, text, name);
+            });
+        }
+    }
+    
+    /**
+     * Helper function to submit comment after name is confirmed
+     */
+    function actuallySubmitComment(input, text, name) {
         const feedbackId = parseInt(input.closest('.feedback-card').dataset.id);
         const feedback = feedbackData.find(f => f.id === feedbackId);
         
@@ -310,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
             feedback.comments = feedback.comments || [];
             feedback.comments.push({
                 id: Date.now(),
-                name: 'User',
+                name: name,
                 text: text,
                 date: new Date().toISOString(),
                 likes: 0,
@@ -322,23 +389,6 @@ document.addEventListener('DOMContentLoaded', function() {
             displayFeedback(feedbackData);
             input.value = '';
         }
-    }
-    
-    /**
-     * Toggles like status on a comment
-     * @param {number} feedbackId - ID of the parent feedback
-     * @param {number} commentId - Index of the comment in the array
-     */
-    function likeComment(feedbackId, commentId) {
-        const feedback = feedbackData.find(f => f.id === feedbackId);
-        if (!feedback || !feedback.comments[commentId]) return;
-        
-        const comment = feedback.comments[commentId];
-        comment.liked = !comment.liked;
-        comment.likes = comment.liked ? (comment.likes || 0) + 1 : Math.max(0, (comment.likes || 0) - 1);
-        
-        saveFeedbackData();
-        displayFeedback(feedbackData);
     }
     
     /**
@@ -354,12 +404,29 @@ document.addEventListener('DOMContentLoaded', function() {
         feedback.comments[commentId].replies = feedback.comments[commentId].replies || [];
         feedback.comments[commentId].replies.push({
             id: Date.now(),
-            name: 'User',
+            name: localStorage.getItem('commenterName') || 'User',
             text: text,
             date: new Date().toISOString(),
             likes: 0,
             liked: false
         });
+        
+        saveFeedbackData();
+        displayFeedback(feedbackData);
+    }
+    
+    /**
+     * Toggles like status on a comment
+     * @param {number} feedbackId - ID of the parent feedback
+     * @param {number} commentId - Index of the comment in the array
+     */
+    function likeComment(feedbackId, commentId) {
+        const feedback = feedbackData.find(f => f.id === feedbackId);
+        if (!feedback || !feedback.comments[commentId]) return;
+        
+        const comment = feedback.comments[commentId];
+        comment.liked = !comment.liked;
+        comment.likes = comment.liked ? (comment.likes || 0) + 1 : Math.max(0, (comment.likes || 0) - 1);
         
         saveFeedbackData();
         displayFeedback(feedbackData);
